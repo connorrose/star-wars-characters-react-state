@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import ReactDOM from 'react-dom';
 
 import { BrowserRouter as Router } from 'react-router-dom';
@@ -10,28 +10,67 @@ import endpoint from './endpoint';
 
 import './styles.scss';
 
+const createAction = (type, payload = {}) => ({
+  type,
+  payload,
+})
+
+const initialState = {
+  result: null,
+  loading: false,
+  error: null,
+}
+
+const LOADING = 'LOADING';
+const COMPLETED = 'COMPLETED';
+const ERROR = 'ERROR';
+
+const fetchReducer = (state, action) => {
+  const { type, payload } = action;
+  if (type === LOADING) {
+    return {
+      result: null,
+      loading: true,
+      error: null,
+    }
+  }
+
+  if (type === COMPLETED) {
+    return {
+      result: payload.response,
+      loading: false,
+      error: null,
+    }
+  }
+
+  if (type === ERROR) {
+    return {
+      result: null,
+      loading: false,
+      error: payload.error,
+    }
+  }
+
+  return state;
+}
+
 const useFetch = (url) => {
-  const [response, setResponse] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [values, dispatch] = useReducer(fetchReducer, initialState);
 
   useEffect(() => {
-    setLoading(true);
-    setError(false);
-    setResponse(null);
+    dispatch(createAction(LOADING))
 
     fetch(url)
       .then(res => res.json())
-      .then(res => setResponse(res))
-      .catch(err => setError(err))
-      .finally(() => setLoading(false))
+      .then(response => dispatch(createAction(COMPLETED, { response })))
+      .catch(error => dispatch(createAction(ERROR, { error })))
   }, [url])
 
-  return [response, loading, error];
+  return values;
 }
 
 const Application = () => {
-  const [response, loading, error] = useFetch(endpoint + '/characters');
+  const { result, loading, error } = useFetch(endpoint + '/characters');
 
   return (
     <div className="Application">
@@ -41,7 +80,7 @@ const Application = () => {
       <main>
         <section className="sidebar">
           {loading && <p>Loading...</p>}
-          {response && <CharacterList characters={response.characters} />}
+          {result && <CharacterList characters={result.characters} />}
           {error && <p className="error">{JSON.stringify(error)}</p>}
         </section>
       </main>
